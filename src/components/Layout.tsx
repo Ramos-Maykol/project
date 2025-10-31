@@ -7,7 +7,8 @@ import {
   FileText, 
   LogOut, 
   User,
-  Home
+  Home,
+  Package
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -21,15 +22,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageCha
 
   const navigationItems = [
     { id: 'dashboard', label: 'Inicio', icon: Home, roles: ['admin', 'operator'] },
+    { id: 'predictions', label: 'Solicitar Producto', icon: Factory, roles: ['admin', 'operator'] },
+    { id: 'order-management', label: 'Gestión de Pedidos', icon: Package, roles: ['admin', 'operator'] },
     { id: 'data-management', label: 'Gestión de Datos', icon: BarChart3, roles: ['admin', 'operator'] },
-    { id: 'predictions', label: 'Predicciones', icon: Factory, roles: ['admin', 'operator'] },
     { id: 'reports', label: 'Reportes', icon: FileText, roles: ['admin', 'operator'] },
     { id: 'settings', label: 'Configuración', icon: Settings, roles: ['admin'] }
   ];
 
-  const availableItems = navigationItems.filter(item => 
-    item.roles.includes(user?.role || 'operator')
-  );
+  // Para demo académica, mostrar todos los items si el usuario está logueado
+  const availableItems = user ? navigationItems : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,8 +50,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageCha
               <div className="flex items-center space-x-2">
                 <User className="w-5 h-5" />
                 <div className="text-right">
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="text-xs text-gray-300 capitalize">{user?.role}</p>
+                  <p className="text-sm font-medium">{user?.full_name || user?.email}</p>
+                  <p className="text-xs text-gray-300 capitalize">{user?.role || 'usuario'}</p>
                 </div>
               </div>
               <button

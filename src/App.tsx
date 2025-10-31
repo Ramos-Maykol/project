@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginForm } from './components/LoginForm';
 import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
+import { ImprovedDashboard } from './components/ImprovedDashboard';
 import { DataManagement } from './components/DataManagement';
-import { Predictions } from './components/Predictions';
-import { Reports } from './components/Reports';
+import { NewPredictions } from './components/NewPredictions';
+import { OrderManagement } from './components/OrderManagement';
+import { ImprovedReports } from './components/ImprovedReports';
 import { Settings } from './components/Settings';
+import { Chatbot } from './components/Chatbot';
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -30,24 +32,29 @@ const AppContent: React.FC = () => {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <ImprovedDashboard />;
+      case 'predictions':
+        return <NewPredictions />;
+      case 'order-management':
+        return <OrderManagement />;
       case 'data-management':
         return <DataManagement />;
-      case 'predictions':
-        return <Predictions />;
       case 'reports':
-        return <Reports />;
+        return <ImprovedReports />;
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard />;
+        return <ImprovedDashboard />;
     }
   };
 
   return (
-    <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
-      {renderCurrentPage()}
-    </Layout>
+    <>
+      <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
+        {renderCurrentPage()}
+      </Layout>
+      <Chatbot />
+    </>
   );
 };
 

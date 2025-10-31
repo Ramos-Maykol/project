@@ -1,0 +1,26 @@
+# Dockerfile simplificado sin n8n para builds más rápidos
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar solo dependencias de producción (sin n8n)
+RUN npm install --omit=dev --ignore-scripts
+
+# Instalar tsx globalmente
+RUN npm install -g tsx
+
+# Copiar código fuente
+COPY server ./server
+COPY tsconfig*.json ./
+
+# Copiar frontend compilado
+COPY dist ./dist
+
+# Exponer puerto
+EXPOSE 3000
+
+# Comando de inicio
+CMD ["tsx", "server/index.ts"]

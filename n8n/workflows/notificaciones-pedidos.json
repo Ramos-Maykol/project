@@ -1,0 +1,147 @@
+{
+  "name": "Notificaciones de Pedidos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pedido-actualizado",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-pedido",
+      "name": "Webhook Pedido Actualizado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "pedido-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "const order = $input.item.json.body;\nconst oldStatus = order.oldStatus;\nconst newStatus = order.newStatus;\n\nconst statusMessages = {\n  'pending': '⏳ Tu pedido está en cola de producción',\n  'in_progress': '🔨 ¡Tu pedido está en producción!',\n  'completed': '✅ ¡Tu pedido está completado!',\n  'delivered': '📦 ¡Tu pedido ha sido entregado!'\n};\n\nconst message = `**Actualización de Pedido ${order.orderNumber}**\\n\\n${statusMessages[newStatus]}\\n\\n👤 Cliente: ${order.customerName}\\n📦 Producto: ${order.productName}\\n📊 Cantidad: ${order.quantity}\\n\\nGracias por tu preferencia! 😊`;\n\nreturn {\n  json: {\n    orderNumber: order.orderNumber,\n    customerName: order.customerName,\n    newStatus,\n    oldStatus,\n    message,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "function-format-notification",
+      "name": "Formatear Notificación",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.newStatus}}",
+              "operation": "equals",
+              "value2": "delivered"
+            }
+          ]
+        }
+      },
+      "id": "if-delivered",
+      "name": "¿Entregado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/orders/ml/retrain",
+        "method": "POST",
+        "options": {}
+      },
+      "id": "http-retrain-model",
+      "name": "Re-entrenar Modelo ML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aquí puedes agregar lógica para enviar email, SMS, etc.\nconst notification = $input.item.json;\n\nconsole.log('Notificación enviada:', notification.message);\n\nreturn {\n  json: {\n    ...notification,\n    notificationSent: true,\n    method: 'console' // Cambiar a 'email', 'sms', etc.\n  }\n};"
+      },
+      "id": "function-send-notification",
+      "name": "Enviar Notificación",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Notificación procesada\",\n  \"orderNumber\": \"{{$json.orderNumber}}\",\n  \"status\": \"{{$json.newStatus}}\"\n}"
+      },
+      "id": "respond-webhook",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Pedido Actualizado": {
+      "main": [
+        [
+          {
+            "node": "Formatear Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Notificación": {
+      "main": [
+        [
+          {
+            "node": "¿Entregado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Entregado?": {
+      "main": [
+        [
+          {
+            "node": "Re-entrenar Modelo ML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-entrenar Modelo ML": {
+      "main": [
+        [
+          {
+            "node": "Enviar Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Notificación": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "notificaciones-workflow"
+}

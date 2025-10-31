@@ -1,0 +1,249 @@
+{
+  "name": "Chatbot Inteligente - Manufactura",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatbot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-chatbot",
+      "name": "Webhook Chatbot",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "chatbot-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extraer mensaje del usuario\nconst userMessage = $input.item.json.body.message || '';\nconst userId = $input.item.json.body.userId || null;\n\n// Detectar intención\nconst message = userMessage.toLowerCase();\nlet intent = 'general';\nlet productType = null;\n\n// Detectar producto personalizado\nif (message.includes('elaborar') || message.includes('hacer') || message.includes('fabricar')) {\n  intent = 'producto_personalizado';\n  \n  if (message.includes('lavamanos') || message.includes('lavabo')) {\n    productType = 'lavamanos';\n  } else if (message.includes('mueble')) {\n    productType = 'mueble';\n  } else if (message.includes('puerta')) {\n    productType = 'puerta';\n  } else if (message.includes('ventana')) {\n    productType = 'ventana';\n  } else if (message.includes('closet')) {\n    productType = 'closet';\n  } else if (message.includes('cocina')) {\n    productType = 'cocina';\n  }\n}\n\n// Detectar consulta de pedido\nconst orderMatch = userMessage.match(/ORD-\\d{4}-\\d{3}/i);\nif (orderMatch) {\n  intent = 'consulta_pedido';\n}\n\n// Detectar saludo\nif (message.includes('hola') || message.includes('buenos') || message.includes('buenas')) {\n  intent = 'saludo';\n}\n\n// Detectar ayuda\nif (message.includes('ayuda') || message.includes('help')) {\n  intent = 'ayuda';\n}\n\n// Detectar tiempo\nif (message.includes('tiempo') || message.includes('tarda') || message.includes('demora')) {\n  intent = 'tiempo';\n}\n\n// Detectar precio\nif (message.includes('precio') || message.includes('costo') || message.includes('cuanto cuesta')) {\n  intent = 'precio';\n}\n\nreturn {\n  json: {\n    userMessage,\n    userId,\n    intent,\n    productType,\n    orderNumber: orderMatch ? orderMatch[0] : null,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "function-detect-intent",
+      "name": "Detectar Intención",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.intent}}",
+              "operation": "equals",
+              "value2": "producto_personalizado"
+            }
+          ]
+        }
+      },
+      "id": "if-producto",
+      "name": "¿Es Producto?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const productType = $input.item.json.productType || 'producto personalizado';\n\nconst responses = {\n  lavamanos: {\n    message: `¡Por supuesto! 😊 Sí podemos elaborar muebles de baño personalizados.\\n\\nPara darte una cotización precisa, necesito algunos detalles:\\n\\n📏 **Dimensiones**:\\n• Ancho\\n• Alto\\n• Profundidad\\n\\n📦 **Cantidad**: ¿Cuántas unidades necesitas?\\n\\n🎨 **Material preferido**: Madera, metal, otro?\\n\\n⏱️ **Urgencia**: ¿Tienes fecha límite?\\n\\n💡 Sugerencias:\\n• Muebles de baño personalizados\\n• Lavamanos con medidas especiales\\n• Diseños adaptados para niños\\n\\n¿Puedes darme estos detalles para calcular el tiempo y costo?`,\n    action: 'solicitar_detalles'\n  },\n  mueble: {\n    message: `¡Claro que sí! 😊 Fabricamos muebles personalizados.\\n\\nPara cotizar necesito:\\n\\n📏 **Dimensiones** (ancho x alto x profundidad)\\n📦 **Cantidad**\\n🎨 **Material** (madera, metal, mixto)\\n⏱️ **Urgencia**\\n\\n💡 Opciones:\\n• Muebles estándar: 8h producción\\n• Muebles personalizados: 12h producción\\n\\n¿Me das los detalles?`,\n    action: 'solicitar_detalles'\n  },\n  default: {\n    message: `¡Por supuesto! 😊 Sí podemos elaborar ${productType}.\\n\\nPara darte una cotización precisa, necesito:\\n\\n📏 Dimensiones\\n📦 Cantidad\\n🎨 Material\\n⏱️ Urgencia\\n\\n¿Puedes darme estos detalles?`,\n    action: 'solicitar_detalles'\n  }\n};\n\nconst response = responses[productType] || responses.default;\n\nreturn {\n  json: {\n    response: response.message,\n    action: response.action,\n    intent: 'producto_personalizado',\n    productType\n  }\n};"
+      },
+      "id": "function-response-producto",
+      "name": "Respuesta Producto",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.intent}}",
+              "operation": "equals",
+              "value2": "consulta_pedido"
+            }
+          ]
+        }
+      },
+      "id": "if-pedido",
+      "name": "¿Es Consulta Pedido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/chatbot/order/={{$json.orderNumber}}",
+        "options": {}
+      },
+      "id": "http-get-order",
+      "name": "Buscar Pedido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const orderData = $input.item.json;\n\nif (orderData.found) {\n  const order = orderData.order;\n  const statusEmoji = {\n    'Pendiente': '⏳',\n    'En Producción': '🔨',\n    'Completado': '✅',\n    'Entregado': '📦'\n  }[order.status] || '📋';\n  \n  return {\n    json: {\n      response: `${statusEmoji} **Pedido ${order.orderNumber}**\\n\\n👤 Cliente: ${order.customer}\\n📦 Producto: ${order.product}\\n📊 Cantidad: ${order.quantity}\\n⏱️ Tiempo estimado: ${order.estimatedTime}h\\n📅 Entrega estimada: ${new Date(order.estimatedDelivery).toLocaleDateString('es-ES')}\\n🔖 Estado: **${order.status}**\\n\\n¿Necesitas más información?`,\n      action: 'pedido_encontrado'\n    }\n  };\n} else {\n  return {\n    json: {\n      response: orderData.message || 'No encontré ese pedido. Verifica el número de orden.',\n      action: 'pedido_no_encontrado'\n    }\n  };\n}"
+      },
+      "id": "function-format-order",
+      "name": "Formatear Pedido",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const intent = $input.item.json.intent;\n\nconst responses = {\n  saludo: '¡Hola! 👋 Soy tu asistente virtual de manufactura. Puedo ayudarte con:\\n\\n• Cotizaciones de productos personalizados\\n• Consultar estado de pedidos\\n• Información sobre tiempos de entrega\\n• Catálogo de productos\\n\\n¿Qué necesitas hoy?',\n  \n  ayuda: '🤖 **Puedo ayudarte con**:\\n\\n1️⃣ **Cotizaciones**\\n   • Productos personalizados\\n   • Estimación de tiempos\\n\\n2️⃣ **Seguimiento**\\n   • Estado de pedidos\\n   • Tiempos de entrega\\n\\n3️⃣ **Información**\\n   • Catálogo de productos\\n   • Capacidades de fabricación\\n\\n💬 Solo escribe tu pregunta naturalmente!',\n  \n  tiempo: '⏱️ Los tiempos de entrega dependen de:\\n\\n1. **Tipo de producto**\\n2. **Complejidad del diseño**\\n3. **Cantidad solicitada**\\n4. **Carga actual de producción**\\n\\n📊 **Tiempos promedio**:\\n• Productos estándar: 2-5 días\\n• Productos personalizados: 5-10 días\\n• Proyectos grandes: 10-20 días\\n\\n💡 Para una estimación exacta, ve a **\"Solicitar Producto\"**',\n  \n  precio: '💰 Para darte un precio exacto, necesito:\\n\\n📏 **Especificaciones**:\\n• Tipo de producto\\n• Dimensiones\\n• Material\\n• Cantidad\\n\\n📝 **Opciones**:\\n1. Usa **\"Solicitar Producto\"** para cotización automática\\n2. Descríbeme lo que necesitas aquí\\n3. Contacta a ventas: ventas@manufactura.com',\n  \n  general: '💬 Gracias por tu mensaje.\\n\\nPara ayudarte mejor, puedes:\\n\\n1️⃣ Describir qué producto necesitas\\n2️⃣ Consultar un pedido con su número\\n3️⃣ Escribir \"ayuda\" para ver opciones\\n\\n¿Qué necesitas?'\n};\n\nreturn {\n  json: {\n    response: responses[intent] || responses.general,\n    action: 'respuesta_general',\n    intent\n  }\n};"
+      },
+      "id": "function-general-response",
+      "name": "Respuesta General",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/chatbot/message",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"message\": \"{{$json.userMessage}}\",\n  \"userId\": {{$json.userId}},\n  \"response\": \"{{$json.response}}\"\n}"
+      },
+      "id": "http-save-conversation",
+      "name": "Guardar Conversación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"response\": \"{{$json.response}}\",\n  \"timestamp\": \"{{$json.timestamp}}\",\n  \"intent\": \"{{$json.intent}}\",\n  \"action\": \"{{$json.action}}\"\n}"
+      },
+      "id": "respond-to-webhook",
+      "name": "Responder al Usuario",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Chatbot": {
+      "main": [
+        [
+          {
+            "node": "Detectar Intención",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detectar Intención": {
+      "main": [
+        [
+          {
+            "node": "¿Es Producto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Producto?": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Producto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es Consulta Pedido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Consulta Pedido?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta General",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Pedido": {
+      "main": [
+        [
+          {
+            "node": "Formatear Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Pedido": {
+      "main": [
+        [
+          {
+            "node": "Guardar Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Producto": {
+      "main": [
+        [
+          {
+            "node": "Guardar Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta General": {
+      "main": [
+        [
+          {
+            "node": "Guardar Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Conversación": {
+      "main": [
+        [
+          {
+            "node": "Responder al Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "chatbot-workflow"
+}

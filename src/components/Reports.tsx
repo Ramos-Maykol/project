@@ -5,13 +5,13 @@ import { ARIMAModel } from '../utils/predictiveModels';
 import { 
   FileText, 
   Download, 
-  Calendar, 
   TrendingUp,
   BarChart3,
   PieChart,
   Filter
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { jsPDF } from 'jspdf';
 
 export const Reports: React.FC = () => {
   const [productionData, setProductionData] = useState<ProductionData[]>([]);
@@ -46,42 +46,161 @@ export const Reports: React.FC = () => {
   };
 
   const generatePDFReport = () => {
-    // Simulación de generación de PDF
-    const reportContent = `
-REPORTE DE ANÁLISIS PREDICTIVO - MANUFACTURA
-============================================
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
 
-Período: Últimos ${reportPeriod} días
-Fecha de generación: ${new Date().toLocaleDateString('es-ES')}
+    // Título
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('REPORTE DE ANÁLISIS PREDICTIVO', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+    doc.setFontSize(16);
+    doc.text('SISTEMA DE MANUFACTURA', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
 
-RESUMEN EJECUTIVO:
-- Total de registros analizados: ${productionData.length}
-- Eficiencia promedio: ${(productionData.reduce((sum, d) => sum + d.efficiency_rate, 0) / productionData.length).toFixed(1)}%
-- Producción total: ${productionData.reduce((sum, d) => sum + d.actual_production, 0)} unidades
-- Predicciones generadas: ${predictions.length}
+    // Información del reporte
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Período: Últimos ${reportPeriod} días`, 20, yPos);
+    yPos += 6;
+    doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-ES', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}`, 20, yPos);
+    yPos += 12;
 
-MÉTRICAS CLAVE:
-- Eficiencia máxima: ${Math.max(...productionData.map(d => d.efficiency_rate)).toFixed(1)}%
-- Eficiencia mínima: ${Math.min(...productionData.map(d => d.efficiency_rate)).toFixed(1)}%
-- Tiempo promedio de proceso: ${(productionData.reduce((sum, d) => sum + d.standard_process_time, 0) / productionData.length).toFixed(2)}h
+    // Línea separadora
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, yPos, pageWidth - 20, yPos);
+    yPos += 10;
 
-RECOMENDACIONES:
-- Mantener eficiencia por encima del 85%
-- Optimizar tiempos de setup de máquinas
-- Implementar mantenimiento predictivo
-- Monitorear tendencias de demanda
+    // RESUMEN EJECUTIVO
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RESUMEN EJECUTIVO', 20, yPos);
+    yPos += 8;
 
-PRONÓSTICO (7 días):
-${forecastData.map((eff, i) => `Día ${i + 1}: ${eff.toFixed(1)}% eficiencia`).join('\n')}
-    `;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const avgEfficiency = productionData.length > 0 
+      ? (productionData.reduce((sum, d) => sum + d.efficiency_rate, 0) / productionData.length).toFixed(1)
+      : '0';
+    const totalProduction = productionData.reduce((sum, d) => sum + d.actual_production, 0);
 
-    const blob = new Blob([reportContent], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte_manufactura_${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    doc.text(`• Total de registros analizados: ${productionData.length}`, 25, yPos);
+    yPos += 6;
+    doc.text(`• Eficiencia promedio: ${avgEfficiency}%`, 25, yPos);
+    yPos += 6;
+    doc.text(`• Producción total: ${totalProduction.toLocaleString()} unidades`, 25, yPos);
+    yPos += 6;
+    doc.text(`• Predicciones generadas: ${predictions.length}`, 25, yPos);
+    yPos += 12;
+
+    // MÉTRICAS CLAVE
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MÉTRICAS CLAVE', 20, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    if (productionData.length > 0) {
+      const maxEff = Math.max(...productionData.map(d => d.efficiency_rate)).toFixed(1);
+      const minEff = Math.min(...productionData.map(d => d.efficiency_rate)).toFixed(1);
+      const avgTime = (productionData.reduce((sum, d) => sum + d.standard_process_time, 0) / productionData.length).toFixed(2);
+
+      doc.text(`• Eficiencia máxima: ${maxEff}%`, 25, yPos);
+      yPos += 6;
+      doc.text(`• Eficiencia mínima: ${minEff}%`, 25, yPos);
+      yPos += 6;
+      doc.text(`• Tiempo promedio de proceso: ${avgTime} horas`, 25, yPos);
+      yPos += 12;
+    }
+
+    // KPIs
+    const kpis = calculateKPIs();
+    if (kpis) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INDICADORES DE DESEMPEÑO (KPIs)', 20, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`• Cumplimiento de demanda: ${kpis.fulfillment.toFixed(1)}%`, 25, yPos);
+      yPos += 6;
+      doc.text(`• Utilización de recursos: ${kpis.utilization.toFixed(1)}%`, 25, yPos);
+      yPos += 12;
+    }
+
+    // PRONÓSTICO
+    if (forecastData.length > 0) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PRONÓSTICO DE EFICIENCIA (7 días)', 20, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      forecastData.forEach((eff, i) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(`• Día ${i + 1}: ${eff.toFixed(1)}% eficiencia esperada`, 25, yPos);
+        yPos += 6;
+      });
+      yPos += 6;
+    }
+
+    // RECOMENDACIONES
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RECOMENDACIONES', 20, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const recommendations = [
+      'Mantener eficiencia por encima del 85%',
+      'Optimizar tiempos de setup de máquinas',
+      'Implementar programa de mantenimiento predictivo',
+      'Monitorear tendencias de demanda constantemente',
+      'Revisar y ajustar parámetros de producción regularmente'
+    ];
+
+    recommendations.forEach(rec => {
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(`• ${rec}`, 25, yPos);
+      yPos += 6;
+    });
+
+    // Pie de página
+    const pageCount = doc.internal.pages.length - 1;
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Página ${i} de ${pageCount} - Sistema de Predicción de Producción Manufacturera`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
+
+    // Guardar PDF
+    doc.save(`reporte_manufactura_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const exportDetailedCSV = () => {
@@ -119,7 +238,7 @@ ${forecastData.map((eff, i) => `Día ${i + 1}: ${eff.toFixed(1)}% eficiencia`).j
   };
 
   // Preparar datos para gráficas
-  const trendData = productionData.map((data, index) => ({
+  const trendData = productionData.map((data) => ({
     date: new Date(data.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
     eficiencia: data.efficiency_rate,
     cumplimiento: (data.actual_production / data.projected_demand * 100),
@@ -256,8 +375,8 @@ ${forecastData.map((eff, i) => `Día ${i + 1}: ${eff.toFixed(1)}% eficiencia`).j
                 <XAxis dataKey="date" />
                 <YAxis domain={[70, 95]} />
                 <Tooltip 
-                  formatter={(value, name) => [
-                    `${value.toFixed(1)}%`,
+                  formatter={(value: any, name: any) => [
+                    `${Number(value).toFixed(1)}%`,
                     name === 'eficiencia' ? 'Eficiencia' : 
                     name === 'cumplimiento' ? 'Cumplimiento' : 'Utilización'
                   ]}
@@ -286,8 +405,8 @@ ${forecastData.map((eff, i) => `Día ${i + 1}: ${eff.toFixed(1)}% eficiencia`).j
                 <XAxis dataKey="dia" />
                 <YAxis domain={[75, 95]} />
                 <Tooltip 
-                  formatter={(value, name) => [
-                    `${value.toFixed(1)}%`,
+                  formatter={(value: any, name: any) => [
+                    `${Number(value).toFixed(1)}%`,
                     name === 'eficienciaPronosticada' ? 'Eficiencia Pronosticada' : 'Objetivo'
                   ]}
                 />

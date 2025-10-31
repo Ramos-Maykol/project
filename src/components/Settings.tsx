@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../database';
-import { ProductionParameter } from '../types';
+import { ProductionParameter, ProductionData } from '../types';
 import { 
   Settings as SettingsIcon, 
   Save, 
@@ -16,12 +16,14 @@ import {
 export const Settings: React.FC = () => {
   const { user } = useAuth();
   const [parameters, setParameters] = useState<ProductionParameter[]>([]);
+  const [productionData, setProductionData] = useState<ProductionData[]>([]);
   const [editedValues, setEditedValues] = useState<{[key: number]: number}>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     loadParameters();
+    loadProductionData();
   }, []);
 
   const loadParameters = async () => {
@@ -30,6 +32,15 @@ export const Settings: React.FC = () => {
       setParameters(params);
     } catch (error) {
       console.error('Error cargando parámetros:', error);
+    }
+  };
+
+  const loadProductionData = async () => {
+    try {
+      const data = await db.getProductionData();
+      setProductionData(data);
+    } catch (error) {
+      console.error('Error cargando datos de producción:', error);
     }
   };
 
